@@ -4,7 +4,7 @@ body {
 }
 
 .calc-container {
-    width: 300px;
+    width: 320px;
     margin: 100px auto;
 
     text-align: center;
@@ -27,28 +27,15 @@ body {
 
 .calc-grid {
     display: flex;
+    justify-content: space-evenly;
     flex-wrap: wrap;
 }
 
-.btn-container {
-    padding: 2%;
-    box-sizing: border-box;
-}
-
-.container-size-1 {
-    width: 75px;
-    height: 75px;
-}
-
-.container-size-2 {
-    width: 150px;
-    height: 75px;
-}
-
 .btn {
-    height: 100%;
-    width: 100%;
-    border-radius: 50%;
+    width: 70px;
+    height: 70px;
+    border-radius: 35px;
+    margin-bottom: 8px;
 
     display: flex;
     flex-direction: column;
@@ -96,10 +83,10 @@ body {
 }
 
 #zero-btn {
-    padding-left: 16%;
-    border-radius: 25%/50%;
+    width: 150px;
     box-sizing: border-box;
 
+    padding-left: 25px;
     text-align: left;
 }
 
@@ -113,18 +100,20 @@ body {
         padding: 0 8%;
     }
 
-    .container-size-1 {
-        width: 100px;
-        height: 100px;
-    }
-
-    .container-size-2 {
-        width: 200px;
-        height: 100px;
-    }
-
     .btn {
-        font-size: 3em;
+        width: 90px;
+        height: 90px;
+        border-radius: 45px;
+
+        font-size: 2em;
+    }
+
+    #zero-btn {
+        width: 195px;
+        box-sizing: border-box;
+
+        padding-left: 35px;
+        text-align: left;
     }
 }
 
@@ -138,22 +127,20 @@ body {
         padding: 0 8%;
     }
 
-    .container-size-1 {
-        width: 125px;
-        height: 125px;
-    }
-
-    .container-size-2 {
-        width: 250px;
-        height: 125px;
-    }
-
     .btn {
-        font-size: 4em;
+        width: 108px;
+        height: 108px;
+        border-radius: 54px;
+
+        font-size: 2em;
     }
 
     #zero-btn {
-        padding-left: 15%;
+        width: 228px;
+        box-sizing: border-box;
+
+        padding-left: 45px;
+        text-align: left;
     }
 }
 
