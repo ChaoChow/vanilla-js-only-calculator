@@ -4,8 +4,7 @@ body {
 }
 
 .calc-container {
-    max-width: 500px;
-    min-width: 320px;
+    width: 300px;
     margin: 100px auto;
 
     text-align: center;
@@ -14,9 +13,9 @@ body {
 
 .calc-display {
     width: 100%;
-    margin-top: 100px;
+    margin: 10px 0;
     height: 1em;
-    padding: 0 11%;
+    padding: 0 7%;
 
     font-size: 3em;
     text-align: right;
@@ -27,10 +26,6 @@ body {
 }
 
 .calc-grid {
-    width: 100%;
-    padding: 0 20px 20px 20px;
-    box-sizing: border-box;
-
     display: flex;
     flex-wrap: wrap;
 }
@@ -41,13 +36,13 @@ body {
 }
 
 .container-size-1 {
-    width: 25%;
-    aspect-ratio: 1;
+    width: 75px;
+    height: 75px;
 }
 
 .container-size-2 {
-    width: 50%;
-    aspect-ratio: 2;
+    width: 150px;
+    height: 75px;
 }
 
 .btn {
@@ -101,21 +96,64 @@ body {
 }
 
 #zero-btn {
-    padding-left: 19%;
+    padding-left: 16%;
     border-radius: 25%/50%;
     box-sizing: border-box;
 
     text-align: left;
 }
 
-@media screen and (min-width: 450px) {
+@media all and (min-width: 401px) and (max-width: 500px) {
+    .calc-container {
+        width: 401px;
+    }
+
     .calc-display {
         font-size: 4em;
-        padding: 0 9%;
+        padding: 0 8%;
+    }
+
+    .container-size-1 {
+        width: 100px;
+        height: 100px;
+    }
+
+    .container-size-2 {
+        width: 200px;
+        height: 100px;
     }
 
     .btn {
         font-size: 3em;
+    }
+}
+
+@media all and (min-width: 501px) {
+    .calc-container {
+        width: 501px;
+    }
+
+    .calc-display {
+        font-size: 5em;
+        padding: 0 8%;
+    }
+
+    .container-size-1 {
+        width: 125px;
+        height: 125px;
+    }
+
+    .container-size-2 {
+        width: 250px;
+        height: 125px;
+    }
+
+    .btn {
+        font-size: 4em;
+    }
+
+    #zero-btn {
+        padding-left: 15%;
     }
 }
 
