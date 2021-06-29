@@ -58,6 +58,10 @@ class UserInputModel {
     return UserInputModel.toDisplayString(this.currentUserInput);
   }
 
+  set inputAsString(value) {
+    this.currentUserInput = UserInputModel.toDisplayString(value);
+  }
+
   addChar(char) {
     if (char === DECIMAL_CHARCTER && this.currentUserInput.includes(DECIMAL_CHARCTER)) {
       return;
@@ -120,6 +124,7 @@ document.getElementById('clear-btn').addEventListener(CLICK_EVENT, () => {
 });
 
 document.getElementById('sign-toggle-btn').addEventListener(CLICK_EVENT, () => {
+  userInputModel.inputAsString = getDisplayNumber().toString();
   userInputModel.flipSign();
   updateDisplayNumber(userInputModel.inputAsString);
 });
