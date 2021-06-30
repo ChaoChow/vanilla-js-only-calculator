@@ -74,6 +74,11 @@ body {
     color: orange;
 }
 
+.op-btn-highlight {
+    background-color: white;
+    color: orange;
+}
+
 #equals-btn {
     background-color: orange;
 }

@@ -8,6 +8,8 @@ CLICK_EVENT = 'click';
 MAX_CHAR_LIMIT = 9;
 ACTIVE_OP_BUTTON_CLASS_NAME = 'op-btn-highlight';
 BUTTON_SUFFIX = '-btn';
+OPERATION_ATTRIBUTE = 'operation';
+HIGHLIGHT_OPERATION_BUTTON_CLASS = 'op-btn-highlight';
 
 const STACK_ITEM_TYPE = {
   OPERATION: 'OPERATION',
@@ -20,12 +22,18 @@ const STACK_ERROR_TYPE = {
   MISSING_REQUIRED_ITEMS: 'MISSING_REQUIRED_ITEMS',
 }
 
+const OPERATION_TYPE = {
+  SUM: 'sum',
+  SUBTRACT: 'subtract',
+  MULTIPLY: 'multiply',
+  DIVIDE: 'divide'
+}
+
 class Compute {
   static sum(lhs, rhs) {return lhs + rhs;}
   static subtract(lhs, rhs) {return lhs - rhs;}
   static multiply(lhs, rhs) {return lhs * rhs;}
   static divide(lhs, rhs) {return lhs / rhs;}
-  static mod(lhs, rhs) {return lhs % rhs;}
 }
 
 class StackItem {
@@ -64,10 +72,14 @@ class StackItemConverter {
 class CalculatorService {
   constructor(renderResultFunction) {
     this.renderResultFunction = renderResultFunction;
-    this.clear();
+    this.clearAll();
   }
 
   clear() {
+
+  }
+
+  clearAll() {
     const emptyStackItem = new StackItem(STACK_ITEM_TYPE.USER_INPUT);
     this.calculatorStack = [emptyStackItem];
     this.renderResultFunction(emptyStackItem.value)
@@ -90,7 +102,7 @@ class CalculatorService {
   }
 
   addOperation(operation) {
-    const topStackItem = this._getStackItem(0);
+    const topStackItem = this.getStackItem(0);
 
     switch (topStackItem.stackItemType) {
       case STACK_ITEM_TYPE.OPERATION:
@@ -108,11 +120,11 @@ class CalculatorService {
 
   flipNumberSign() {
     // Only operate if top stack item is a user input item
-    let topStackItem = this._getStackItem(0);
+    let topStackItem = this.getStackItem(0);
     if (topStackItem.stackItemType === STACK_ITEM_TYPE.OPERATION) {
       // Copy second item to top
       this._copyStackItemToTop(1);
-      topStackItem = this._getStackItem(0);
+      topStackItem = this.getStackItem(0);
     }
 
     // Left expression makes number positive, right, negative
@@ -123,7 +135,7 @@ class CalculatorService {
   }
 
   computeResult() {
-    const topStackItem = this._getStackItem(0);
+    const topStackItem = this.getStackItem(0);
 
     switch (topStackItem.stackItemType) {
       case STACK_ITEM_TYPE.RESULT:
@@ -139,18 +151,25 @@ class CalculatorService {
   }
 
   computeStack() {
-    const lhsNumber = StackItemConverter.toNumber(this._getStackItem(0).value);
-    const operation = this._getStackItem(1).value; // Operation requires no conversion
-    const rhsNumber = StackItemConverter.toNumber(this._getStackItem(2).value);
+    const lhsNumber = StackItemConverter.toNumber(this.getStackItem(0).value);
+    const operation = this.getStackItem(1).value; // Operation requires no conversion
+    const rhsNumber = StackItemConverter.toNumber(this.getStackItem(2).value);
 
     const result = Compute[operation](rhsNumber, lhsNumber);
     const resultStackItem = new StackItem(STACK_ITEM_TYPE.RESULT, result.toString());
     this.calculatorStack.push(resultStackItem);
 
     this.renderResultFunction(resultStackItem.value);
+
+    // Cleanup the calculator stack by removing things from the back (front of array)
+    // Just arbitrary numbers to keep the memory heap clean
+    if (this.calculatorStack.length >= 20) {
+      // Bring stack size down to 10
+      this.calculatorStack.splice(0, this.calculatorStack.length - 10);
+    }
   }
 
-  _getStackItem(index) {
+  getStackItem(index) {
     const topStackItem = this.calculatorStack[this.calculatorStack.length - index - 1];
     if (topStackItem.stackItemType == null) {
       // Not ready to compare
@@ -161,7 +180,7 @@ class CalculatorService {
   }
 
   _copyStackItemToTop(index) {
-    const targetStackItem = this._getStackItem(index);
+    const targetStackItem = this.getStackItem(index);
     this.calculatorStack.push(targetStackItem);
   }
 }
@@ -174,17 +193,38 @@ renderDisplayNumber = function(rawString) {
 
 const calculatorService = new CalculatorService(renderDisplayNumber);
 
+const divideButtonElement = document.getElementById('divide-btn');
+const multiplyButtonElement = document.getElementById('multiply-btn');
+const subtractButtonElement = document.getElementById('subtract-btn');
+const sumButtonElement = document.getElementById('sum-btn');
+
+const operationButtonElementArray = [divideButtonElement, multiplyButtonElement, subtractButtonElement, sumButtonElement];
+
+highlightOperationButton = function() {
+  const topStackItem = calculatorService.getStackItem(0);
+
+  // Clear everything first
+  operationButtonElementArray
+    .forEach(element => element.classList.remove(HIGHLIGHT_OPERATION_BUTTON_CLASS));
+
+  if (topStackItem.stackItemType === STACK_ITEM_TYPE.OPERATION) {
+    operationButtonElementArray.filter(element => element.getAttribute(OPERATION_ATTRIBUTE) === topStackItem.value)
+      .forEach(element => element.classList.add(HIGHLIGHT_OPERATION_BUTTON_CLASS));
+  }
+}
 
 Array.from(document.getElementsByClassName('num-btn'))
   .forEach(numButton => {
     numButton.addEventListener(CLICK_EVENT, () => {
       calculatorService.addNumChar(numButton.innerHTML);
+      highlightOperationButton();
     });
 });
 
 document.getElementById('clear-btn')
   .addEventListener(CLICK_EVENT, () => {
-    calculatorService.clear();
+    calculatorService.clearAll();
+    highlightOperationButton();
 });
 
 document.getElementById('sign-toggle-btn')
@@ -195,12 +235,14 @@ document.getElementById('sign-toggle-btn')
 Array.from(document.getElementsByClassName('op-btn'))
   .forEach(opButton => {
     opButton.addEventListener(CLICK_EVENT, () => {
-      calculatorService.addOperation(opButton.getAttribute('operation'));
+      calculatorService.addOperation(opButton.getAttribute(OPERATION_ATTRIBUTE));
+      highlightOperationButton();
     });
 });
 
 document.getElementById('equals-btn')
   .addEventListener(CLICK_EVENT, () => {
     calculatorService.computeResult();
+    highlightOperationButton();
   }
 );
