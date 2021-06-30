@@ -8,143 +8,241 @@ CLICK_EVENT = 'click';
 MAX_CHAR_LIMIT = 9;
 ACTIVE_OP_BUTTON_CLASS_NAME = 'op-btn-highlight';
 BUTTON_SUFFIX = '-btn';
+OPERATION_ATTRIBUTE = 'operation';
+HIGHLIGHT_OPERATION_BUTTON_CLASS = 'op-btn-highlight';
+
+const STACK_ITEM_TYPE = {
+  OPERATION: 'OPERATION',
+  USER_INPUT: 'USER_INPUT',
+  RESULT: 'RESULT',
+}
+
+const STACK_ERROR_TYPE = {
+  ITEM_NULL: 'ITEM_NULL',
+  MISSING_REQUIRED_ITEMS: 'MISSING_REQUIRED_ITEMS',
+}
+
+const OPERATION_TYPE = {
+  SUM: 'sum',
+  SUBTRACT: 'subtract',
+  MULTIPLY: 'multiply',
+  DIVIDE: 'divide'
+}
 
 class Compute {
   static sum(lhs, rhs) {return lhs + rhs;}
   static subtract(lhs, rhs) {return lhs - rhs;}
   static multiply(lhs, rhs) {return lhs * rhs;}
   static divide(lhs, rhs) {return lhs / rhs;}
-  static mod(lhs, rhs) {return lhs % rhs;}
 }
 
-class CalculatorController {
-  clear() {
-    this.savedNumber = null;
-    this.operation = null;
-  }
-
-  saveNumber(displayNumber, operation) {
-    this.savedNumber = (this.savedNumber != null) ? this.compute(displayNumber) : displayNumber;
-    this.operation = operation;
-
-    return this.savedNumber;
-  }
-
-  compute(displayNumber) {
-    if (this.savedNumber == null) {
-      return displayNumber;
-    }
-
-    return Compute[this.operation](this.savedNumber, displayNumber);
+class StackItem {
+  constructor(stackItemType, value) {
+    this.stackItemType = stackItemType;
+    this.value = value ? value : '';
   }
 }
 
-class UserInputModel {
-  static toDisplayString(numberAsString) {
-    if (numberAsString[0] === DECIMAL_CHARCTER) {
-      return ZERO_TEXT + numberAsString;
-    } else if (numberAsString === EMPTY_TEXT) {
+class StackItemConverter {
+  static toNumber(rawString) {
+    return parseFloat(this.toDisplayString(rawString));
+  }
+
+  static toDisplayString(rawString) {
+    // Edge cases include '.' | '-' | '-.' | '-.*' | '' where * is any number
+    if (rawString[0] === DECIMAL_CHARCTER) {
+      // '.'
+      return ZERO_TEXT + rawString;
+    } else if (rawString === NEGATIVE_SYMBOL_TEXT) {
+      // '-'
+      return rawString + ZERO_TEXT;
+    } else if (rawString[0] === NEGATIVE_SYMBOL_TEXT && rawString[1] === DECIMAL_CHARCTER) {
+      // '-.*'
+      return NEGATIVE_SYMBOL_TEXT + ZERO_TEXT + rawString.substring(1);
+    } else if (rawString === EMPTY_TEXT) {
+      // ''
       return ZERO_TEXT;
-    } else {
-      return numberAsString;
-    }
-  }
-
-  get inputAsNumber() {
-    return parseFloat(this.inputAsString);
-  }
-
-  get inputAsString() {
-    return UserInputModel.toDisplayString(this.currentUserInput);
-  }
-
-  set inputAsString(value) {
-    this.currentUserInput = UserInputModel.toDisplayString(value);
-  }
-
-  addChar(char) {
-    if (char === DECIMAL_CHARCTER && this.currentUserInput.includes(DECIMAL_CHARCTER)) {
-      return;
-    } else if (this.numberOfNumChars() >= MAX_CHAR_LIMIT && char !== DECIMAL_CHARCTER) {
-      return;
     }
 
-    this.currentUserInput += char;
+    // Raw string is display string quality
+    return rawString;
   }
+}
 
-  numberOfNumChars() {
-    return Array.from(this.currentUserInput)
-      .filter((char) => !isNaN(char))
-      .length;
-  }
-
-  flipSign() {
-    if (this.inputAsNumber < 0) {
-      // Change negative to positive by removing "-" at front
-      this.currentUserInput = this.currentUserInput.substring(1);
-    } else if (this.inputAsNumber > 0) {
-      // Change positive to negative by adding "-" to front
-      this.currentUserInput = NEGATIVE_SYMBOL_TEXT + this.currentUserInput
-    }
-    // 0 is not positive nor negative
+class CalculatorService {
+  constructor(renderResultFunction) {
+    this.renderResultFunction = renderResultFunction;
+    this.clearAll();
   }
 
   clear() {
-    this.currentUserInput = '';
+
   }
 
-  constructor() {
-    this.clear();
+  clearAll() {
+    const emptyStackItem = new StackItem(STACK_ITEM_TYPE.USER_INPUT);
+    this.calculatorStack = [emptyStackItem];
+    this.renderResultFunction(emptyStackItem.value)
+  }
+
+  addNumChar(numChar) {
+    // If top stack item is undefined or isn't a user input, add one in
+    let topStackItem = this.calculatorStack[this.calculatorStack.length - 1];
+    if (topStackItem == null || topStackItem.stackItemType !== STACK_ITEM_TYPE.USER_INPUT) {
+      this.calculatorStack.push(new StackItem(STACK_ITEM_TYPE.USER_INPUT));
+      topStackItem = this.calculatorStack[this.calculatorStack.length - 1];
+    }
+
+    if (numChar === DECIMAL_CHARCTER && topStackItem.value.includes(DECIMAL_CHARCTER)) {
+      return;
+    }
+
+    topStackItem.value += numChar;
+    this.renderResultFunction(topStackItem.value);
+  }
+
+  addOperation(operation) {
+    const topStackItem = this.getStackItem(0);
+
+    switch (topStackItem.stackItemType) {
+      case STACK_ITEM_TYPE.OPERATION:
+        topStackItem.value = operation;
+        break;
+      case STACK_ITEM_TYPE.USER_INPUT:
+        try { this.computeStack(); } catch {}
+        // INTENTIONAL FALL THROUGH
+      case STACK_ITEM_TYPE.RESULT:
+        // INTENTIONAL FALL THROUGH
+        this.calculatorStack.push(new StackItem(STACK_ITEM_TYPE.OPERATION, operation));
+        return true;
+    }
+  }
+
+  flipNumberSign() {
+    // Only operate if top stack item is a user input item
+    let topStackItem = this.getStackItem(0);
+    if (topStackItem.stackItemType === STACK_ITEM_TYPE.OPERATION) {
+      // Copy second item to top
+      this._copyStackItemToTop(1);
+      topStackItem = this.getStackItem(0);
+    }
+
+    // Left expression makes number positive, right, negative
+    topStackItem.value = (topStackItem.value[0] === NEGATIVE_SYMBOL_TEXT) ?
+      topStackItem.value.substring(1) : NEGATIVE_SYMBOL_TEXT + topStackItem.value;
+
+    this.renderResultFunction(topStackItem.value);
+  }
+
+  computeResult() {
+    const topStackItem = this.getStackItem(0);
+
+    switch (topStackItem.stackItemType) {
+      case STACK_ITEM_TYPE.RESULT:
+        this._copyStackItemToTop(2);
+        this._copyStackItemToTop(2); // Previous item at index 1 is now at index 2
+        break;
+      case STACK_ITEM_TYPE.OPERATION:
+        this._copyStackItemToTop(1);
+        break;
+    }
+
+    this.computeStack();
+  }
+
+  computeStack() {
+    const lhsNumber = StackItemConverter.toNumber(this.getStackItem(0).value);
+    const operation = this.getStackItem(1).value; // Operation requires no conversion
+    const rhsNumber = StackItemConverter.toNumber(this.getStackItem(2).value);
+
+    const result = Compute[operation](rhsNumber, lhsNumber);
+    const resultStackItem = new StackItem(STACK_ITEM_TYPE.RESULT, result.toString());
+    this.calculatorStack.push(resultStackItem);
+
+    this.renderResultFunction(resultStackItem.value);
+
+    // Cleanup the calculator stack by removing things from the back (front of array)
+    // Just arbitrary numbers to keep the memory heap clean
+    if (this.calculatorStack.length >= 20) {
+      // Bring stack size down to 10
+      this.calculatorStack.splice(0, this.calculatorStack.length - 10);
+    }
+  }
+
+  getStackItem(index) {
+    const topStackItem = this.calculatorStack[this.calculatorStack.length - index - 1];
+    if (topStackItem.stackItemType == null) {
+      // Not ready to compare
+      throw new Error(STACK_ERROR_TYPE.ITEM_NULL);
+    }
+
+    return topStackItem;
+  }
+
+  _copyStackItemToTop(index) {
+    const targetStackItem = this.getStackItem(index);
+    this.calculatorStack.push(targetStackItem);
   }
 }
 
-let userInputModel = new UserInputModel();
-let calculatorController = new CalculatorController();
+const calcDisplayElement = document.getElementById('calc-display');
 
-updateDisplayNumber = function(displayNumberString) {
-  document.getElementById('calc-display').value = displayNumberString;
+renderDisplayNumber = function(rawString) {
+  calcDisplayElement.value = StackItemConverter.toDisplayString(rawString);
 }
 
-getDisplayNumber = function() {
-  let rawDisplayNumber = document.getElementById('calc-display').value
-  return parseFloat(rawDisplayNumber);
+const calculatorService = new CalculatorService(renderDisplayNumber);
+
+const divideButtonElement = document.getElementById('divide-btn');
+const multiplyButtonElement = document.getElementById('multiply-btn');
+const subtractButtonElement = document.getElementById('subtract-btn');
+const sumButtonElement = document.getElementById('sum-btn');
+
+const operationButtonElementArray = [divideButtonElement, multiplyButtonElement, subtractButtonElement, sumButtonElement];
+
+highlightOperationButton = function() {
+  const topStackItem = calculatorService.getStackItem(0);
+
+  // Clear everything first
+  operationButtonElementArray
+    .forEach(element => element.classList.remove(HIGHLIGHT_OPERATION_BUTTON_CLASS));
+
+  if (topStackItem.stackItemType === STACK_ITEM_TYPE.OPERATION) {
+    operationButtonElementArray.filter(element => element.getAttribute(OPERATION_ATTRIBUTE) === topStackItem.value)
+      .forEach(element => element.classList.add(HIGHLIGHT_OPERATION_BUTTON_CLASS));
+  }
 }
 
-Array.from(document.getElementsByClassName('num-btn')).forEach(numButton => {
-  numButton.addEventListener(CLICK_EVENT, () => {
-    userInputModel.addChar(numButton.innerHTML);
-    updateDisplayNumber(userInputModel.inputAsString)
-  });
+Array.from(document.getElementsByClassName('num-btn'))
+  .forEach(numButton => {
+    numButton.addEventListener(CLICK_EVENT, () => {
+      calculatorService.addNumChar(numButton.innerHTML);
+      highlightOperationButton();
+    });
 });
 
-document.getElementById('clear-btn').addEventListener(CLICK_EVENT, () => {
-  userInputModel.clear();
-  calculatorController.clear();
-  updateDisplayNumber(userInputModel.inputAsString);
+document.getElementById('clear-btn')
+  .addEventListener(CLICK_EVENT, () => {
+    calculatorService.clearAll();
+    highlightOperationButton();
 });
 
-document.getElementById('sign-toggle-btn').addEventListener(CLICK_EVENT, () => {
-  userInputModel.inputAsString = getDisplayNumber().toString();
-  userInputModel.flipSign();
-  updateDisplayNumber(userInputModel.inputAsString);
+document.getElementById('sign-toggle-btn')
+  .addEventListener(CLICK_EVENT, () => {
+    calculatorService.flipNumberSign();
 });
 
-Array.from(document.getElementsByClassName('op-btn')).forEach(opButton => {
-  opButton.addEventListener(CLICK_EVENT, () => {
-    const resultDisplayNumber = calculatorController.saveNumber(
-      getDisplayNumber(),
-      opButton.getAttribute('operation')
-    );
-    const resultDisplayString = UserInputModel.toDisplayString(resultDisplayNumber.toString());
-    updateDisplayNumber(resultDisplayString);
-    userInputModel.clear();
-  });
+Array.from(document.getElementsByClassName('op-btn'))
+  .forEach(opButton => {
+    opButton.addEventListener(CLICK_EVENT, () => {
+      calculatorService.addOperation(opButton.getAttribute(OPERATION_ATTRIBUTE));
+      highlightOperationButton();
+    });
 });
 
-document.getElementById('equals-btn').addEventListener(CLICK_EVENT, () => {
-  const resultDisplayNumber = calculatorController.compute(getDisplayNumber());
-  const resultDisplayString = UserInputModel.toDisplayString(resultDisplayNumber.toString());
-  updateDisplayNumber(resultDisplayString);
-  userInputModel.clear();
-  calculatorController.clear();
-});
+document.getElementById('equals-btn')
+  .addEventListener(CLICK_EVENT, () => {
+    calculatorService.computeResult();
+    highlightOperationButton();
+  }
+);
