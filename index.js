@@ -20,13 +20,7 @@ const STACK_ITEM_TYPE = {
 const STACK_ERROR_TYPE = {
   ITEM_NULL: 'ITEM_NULL',
   MISSING_REQUIRED_ITEMS: 'MISSING_REQUIRED_ITEMS',
-}
-
-const OPERATION_TYPE = {
-  SUM: 'sum',
-  SUBTRACT: 'subtract',
-  MULTIPLY: 'multiply',
-  DIVIDE: 'divide'
+  CALCULATION_FAILURE: 'CALCULATION_FAILURE',
 }
 
 class Compute {
@@ -34,6 +28,7 @@ class Compute {
   static subtract(lhs, rhs) {return lhs - rhs;}
   static multiply(lhs, rhs) {return lhs * rhs;}
   static divide(lhs, rhs) {return lhs / rhs;}
+  static mod(lhs, rhs) {return lhs % rhs;}
 }
 
 class StackItem {
@@ -76,7 +71,18 @@ class CalculatorService {
   }
 
   clear() {
+    let topStackItem = this.getStackItem(0);
 
+    if (topStackItem.stackItemType === STACK_ITEM_TYPE.USER_INPUT ||
+        topStackItem.stackItemType === STACK_ITEM_TYPE.RESULT) {
+      topStackItem.value = EMPTY_TEXT;
+    } else {
+      // Top stack item must be operation, insert a new top stack item
+      this.calculatorStack.push(new StackItem(STACK_ITEM_TYPE.USER_INPUT));
+      topStackItem = this.getStackItem(0);
+    }
+
+    this.renderResultFunction(topStackItem.value);
   }
 
   clearAll() {
@@ -114,7 +120,6 @@ class CalculatorService {
       case STACK_ITEM_TYPE.RESULT:
         // INTENTIONAL FALL THROUGH
         this.calculatorStack.push(new StackItem(STACK_ITEM_TYPE.OPERATION, operation));
-        return true;
     }
   }
 
@@ -163,9 +168,9 @@ class CalculatorService {
 
     // Cleanup the calculator stack by removing things from the back (front of array)
     // Just arbitrary numbers to keep the memory heap clean
-    if (this.calculatorStack.length >= 20) {
-      // Bring stack size down to 10
-      this.calculatorStack.splice(0, this.calculatorStack.length - 10);
+    if (this.calculatorStack.length > 3) {
+      // Bring stack size down to 3
+      this.calculatorStack.splice(0, this.calculatorStack.length - 3);
     }
   }
 
@@ -193,6 +198,8 @@ renderDisplayNumber = function(rawString) {
 
 const calculatorService = new CalculatorService(renderDisplayNumber);
 
+const clearButtonElement = document.getElementById('clear-btn');
+
 const divideButtonElement = document.getElementById('divide-btn');
 const multiplyButtonElement = document.getElementById('multiply-btn');
 const subtractButtonElement = document.getElementById('subtract-btn');
@@ -202,14 +209,40 @@ const operationButtonElementArray = [divideButtonElement, multiplyButtonElement,
 
 highlightOperationButton = function() {
   const topStackItem = calculatorService.getStackItem(0);
+  const nextStackItem = calculatorService.getStackItem(1);
 
   // Clear everything first
   operationButtonElementArray
     .forEach(element => element.classList.remove(HIGHLIGHT_OPERATION_BUTTON_CLASS));
 
   if (topStackItem.stackItemType === STACK_ITEM_TYPE.OPERATION) {
+    // Highlight operation button if the operation stack item is top in queue
     operationButtonElementArray.filter(element => element.getAttribute(OPERATION_ATTRIBUTE) === topStackItem.value)
       .forEach(element => element.classList.add(HIGHLIGHT_OPERATION_BUTTON_CLASS));
+  } else if (topStackItem.stackItemType === STACK_ITEM_TYPE.USER_INPUT &&
+      topStackItem.value === EMPTY_TEXT &&
+      nextStackItem.stackItemType === STACK_ITEM_TYPE.OPERATION) {
+    // If top stack item is empty and the next stack item is operation
+    operationButtonElementArray.filter(element => element.getAttribute(OPERATION_ATTRIBUTE) === nextStackItem.value)
+      .forEach(element => element.classList.add(HIGHLIGHT_OPERATION_BUTTON_CLASS));
+  }
+}
+
+determineClearButtonState = function() {
+  const topStackItem = calculatorService.getStackItem(0);
+
+  if (topStackItem.value === EMPTY_TEXT) {
+    clearButtonElement.innerHTML = ALL_CLEAR_TEXT;
+  } else {
+    clearButtonElement.innerHTML = CLEAR_TEXT;
+  }
+}
+
+performClearOperation = function() {
+  if (clearButtonElement.innerHTML === ALL_CLEAR_TEXT) {
+    calculatorService.clearAll();
+  } else {
+    calculatorService.clear();
   }
 }
 
@@ -217,19 +250,22 @@ Array.from(document.getElementsByClassName('num-btn'))
   .forEach(numButton => {
     numButton.addEventListener(CLICK_EVENT, () => {
       calculatorService.addNumChar(numButton.innerHTML);
+      determineClearButtonState();
       highlightOperationButton();
     });
 });
 
 document.getElementById('clear-btn')
   .addEventListener(CLICK_EVENT, () => {
-    calculatorService.clearAll();
+    performClearOperation();
+    determineClearButtonState();
     highlightOperationButton();
 });
 
 document.getElementById('sign-toggle-btn')
   .addEventListener(CLICK_EVENT, () => {
     calculatorService.flipNumberSign();
+    determineClearButtonState();
 });
 
 Array.from(document.getElementsByClassName('op-btn'))
