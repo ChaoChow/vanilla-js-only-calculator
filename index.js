@@ -23,18 +23,12 @@ const STACK_ERROR_TYPE = {
   CALCULATION_FAILURE: 'CALCULATION_FAILURE',
 }
 
-const OPERATION_TYPE = {
-  SUM: 'sum',
-  SUBTRACT: 'subtract',
-  MULTIPLY: 'multiply',
-  DIVIDE: 'divide'
-}
-
 class Compute {
   static sum(lhs, rhs) {return lhs + rhs;}
   static subtract(lhs, rhs) {return lhs - rhs;}
   static multiply(lhs, rhs) {return lhs * rhs;}
   static divide(lhs, rhs) {return lhs / rhs;}
+  static mod(lhs, rhs) {return lhs % rhs;}
 }
 
 class StackItem {
